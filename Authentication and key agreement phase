@@ -1,1 +1,4 @@
-
+role role_U (U, GW, SN: agent,
+		H:hash ,
+		SND, RCV: channel(dy))
+played_by U

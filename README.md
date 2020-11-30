@@ -1,2 +1,2 @@
 # AVISPA
-The HLPSL code of WSN protocol
+The HLPSL code

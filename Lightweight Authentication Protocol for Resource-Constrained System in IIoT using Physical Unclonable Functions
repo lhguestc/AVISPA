@@ -1,0 +1,88 @@
+role device_D (D, S:agent,	H,Puf:function,	Snd,Rcv:channel(dy))
+	played_by D
+		def=	
+		local State: nat,
+		Nd,Ci,Ri_d,Ri_s,Ri_mask,Tid,Ns,Ri_next,Ci_next,Tid_next: text
+		const sec_device_Ci,sec_Ri,sec_Ci_next,sec_Ri_next,auth_D_Ri,auth_S_Ri:protocol_id
+
+	init
+		State :=0
+
+	transition
+		0. State = 0 /\ Rcv(start) =|>
+		   State':=2/\Nd':=new()
+		   /\Tid_next':=H(Tid.Ci_next)
+		   /\Snd(Tid_next'.Nd')
+
+
+		2.State = 2/\Rcv(Ns'.H(Ri_s.Ns'.Nd)) =|>
+		  State':=4/\Ri_d'=Puf(Ci)
+		  	/\Ci_next':=H(Ci.Ri_d'.Nd.Ns')
+			/\Ri_next':=Puf(Ci_next')
+			/\Ri_mask':=xor(Ri_next',H(Ci.Ri_d'.Nd.Ns'))
+			/\Snd(Ri_mask'.H(Ci_next'.Ri_mask'))
+
+		    /\secret(Ci,sec_device_Ci,{D,S})
+			/\secret(Ri_d',sec_Ri,{D,S})
+			/\secret(Ri_next',sec_Ri_next,{D,S})
+			/\secret(Ci_next',sec_Ci_next,{D,S})
+
+			/\witness(D,S,auth_D_Ri, Ri_d')
+            /\request(D,S,auth_S_Ri, Ri_s)
+		end role
+
+	role server_S (D, S: agent,	H,Puf:function,	Snd,Rcv:channel(dy))
+		played_by S 
+		def=
+			local State : nat,
+			Nd,Ci,Ri_d,Ri_s,Ri_mask,Tid,Ns,Ri_next,Ci_next,Tid_next:text
+		const sec_server_Ri,auth_D_Ri,auth_S_Ri:protocol_id
+	init
+		State :=1
+	transition
+		1. State= 1 /\Rcv(Tid_next.Nd') =|>
+		   State':= 3/\ Ns':=new()
+			
+			/\Snd(Ns'.H(Ri_s.Ns'.Nd')) 
+
+			/\secret(Ri_s,sec_server_Ri,{S, D})
+           
+
+		3. State = 3 /\ Rcv(Ri_mask'.H(Ci_next'.Ri_mask'))=|>
+		   State':=5/\Ci_next':=H(Ci.Ri_s.Nd,Ns)
+			/\Ri_next':=xor(Ri_mask',H(Ci.Ri_s.Nd.Ns))
+		   	/\Tid_next'=H(Tid.Ci_next')
+
+            /\witness(S,D,auth_S_Ri, Ri_s)
+			/\request(S,D,auth_D_Ri, Ri_d')
+		end role
+
+	role session(D,S: agent, H,Puf:function)
+	def=
+		local ST, SS, RT, RS: channel (dy)
+
+	composition
+
+		device_D (D, S, H, Puf,ST, RT)
+		/\server_S (S, D, H,Puf, SS, RS)
+
+	end role
+
+	role environment()
+	def=
+	const 	device, server :agent,
+		sec_server_Ri,auth_K,sec_K,auth_Ri:protocol_id,
+		h,puf:function
+	intruder_knowledge = {device, server, h}
+
+	composition
+		session(device, server,h,puf)/\session(i, server,h,puf)/\session(device, i,h,puf)
+	end role
+
+	goal
+
+	secrecy_of sec_device_Ci,sec_Ri,sec_Ri_next,sec_Ci_next
+   	authentication_on auth_D_Ri,auth_S_Ri
+	end goal
+
+	environment()
